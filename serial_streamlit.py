@@ -7,6 +7,12 @@ from barcode.writer import SVGWriter
 from datetime import datetime
 import zipfile
 import streamlit.components.v1 as components
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import json
+import streamlit as st
+import tempfile
 
 # --------------------------
 # 기본 설정
@@ -92,6 +98,53 @@ def save_to_excel(data):
     df.to_excel(fname, index=False)
     return os.path.abspath(fname)
 
+# 기존 save_to_excel 함수 아래 또는 근처에 붙이기
+def upload_excel_to_drive(filepath, folder_id=None):
+    try:
+        # ✅ secrets에서 서비스 계정 정보 불러오기
+        info = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/drive"]
+        )
+        service = build("drive", "v3", credentials=creds)
+
+        file_metadata = {
+            "name": os.path.basename(filepath),
+            "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+
+        if folder_id:
+            file_metadata["parents"] = [folder_id]
+
+        media = MediaFileUpload(filepath, mimetype=file_metadata["mimeType"], resumable=True)
+
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
+
+        st.info(f"✅ 파일이 Google Drive에 업로드되었습니다. 파일 ID: {file.get('id')}")
+        return file.get("id")
+
+    except Exception as e:
+        st.error(f"[❌ Google Drive 업로드 실패] {e}")
+        return None
+
+# 시리얼 넘버 생성 버튼 내부에서 파일 저장 후 Google Drive 업로드 연결
+def save_to_excel(data):
+    filename = "serial_numbers_streamlit.xlsx"
+    if os.path.exists(filename):
+        df_existing = pd.read_excel(filename)
+        df_new = pd.concat([df_existing, pd.DataFrame(data)], ignore_index=True)
+    else:
+        df_new = pd.DataFrame(data)
+    df_new.to_excel(filename, index=False)
+
+    # ✅ 저장 후 Google Drive에 업로드
+    upload_excel_to_drive(filename, folder_id="serial_uploads")
+
+    return os.path.abspath(filename)
 def guess_full_year(d):
     try:
         year = datetime.now().year // 10 * 10 + int(d)
