@@ -146,6 +146,16 @@ def decode_serial(serial):
 
     except Exception as e:
         return {"오류": str(e)}
+def search_serial_from_excel(serial):
+    filename = "serial_numbers_streamlit.xlsx"
+    if not os.path.exists(filename):
+        return None
+    try:
+        df = pd.read_excel(filename)
+        result = df[df['시리얼넘버'] == serial]
+        return result.to_dict(orient="records")[0] if not result.empty else None
+    except Exception as e:
+        return {"오류": str(e)}
 
 
 # --------------------------
@@ -187,6 +197,9 @@ if st.session_state.clicked and not end_num.isdigit():
     st.error("끝 번호는 숫자로 입력해주세요.")
 
 # ... 기존 코드 생략 ...
+
+# ... 기존 코드 생략 ...
+import streamlit.components.v1 as components
 
 # 시리얼 넘버 생성
 if st.button("✅ 시리얼 넘버 생성"):
@@ -258,11 +271,17 @@ if "serial_list" in st.session_state:
 
 # 시리얼 넘버 조회
 st.subheader("🔍 시리얼 넘버 조회")
-decode_input = st.text_input("시리얼 넘버 입력", key="decode_input")
+decode_input = st.text_input("시리얼 넘버 입력 (최대 15자리)", max_chars=15, key="decode_input")
 if st.button("조회"):
     if decode_input:
-        info = decode_serial(decode_input.strip())
-        for k, v in info.items():
-            st.write(f"{k}: {v}")
+        serial = decode_input.strip()
+        record = search_serial_from_excel(serial)
+        if record:
+            st.success("📄 등록된 시리얼 넘버입니다.")
+            for k, v in record.items():
+                st.write(f"{k}: {v}")
+        else:
+            st.error("❌ 조회하신 시리얼 넘버는 존재하지 않는 시리얼 넘버입니다.")
     else:
         st.warning("시리얼 넘버를 입력해주세요.")
+
