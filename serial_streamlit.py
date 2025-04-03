@@ -142,7 +142,7 @@ def save_to_excel(data):
     df_new.to_excel(filename, index=False)
 
     # ✅ 저장 후 Google Drive에 업로드
-    upload_excel_to_drive(filename, folder_id="serial_uploads")
+    upload_excel_to_drive(filename, folder_id="1hi40Z3-giQO9Y9X8hey5UktZn3m5i5I5")
 
     return os.path.abspath(filename)
 def guess_full_year(d):
