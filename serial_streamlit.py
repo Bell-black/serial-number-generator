@@ -211,7 +211,7 @@ if st.button("✅ 시리얼 넘버 생성"):
                 maker_code = maker_dict[maker_name]
                 category_code = category_dict[category_name]
 
-                results, serial_list = [], []
+                results, records, serial_list = [], [], []
                 for i in range(start, end + 1):
                     seq = str(i).zfill(5)
                     serial = generate_serial(maker_code, category_code, model_code, year, month.lstrip("0"), order, seq)
@@ -219,6 +219,7 @@ if st.button("✅ 시리얼 넘버 생성"):
                     results.append((serial, svg_path))
                     serial_list.append(serial)
 
+                    # ✅ Google Sheets에 실시간 저장
                     append_serial_to_sheet({
                         "시리얼넘버": serial,
                         "제조사": maker_name,
@@ -230,8 +231,8 @@ if st.button("✅ 시리얼 넘버 생성"):
                         "생산순서": seq
                     })
 
-                st.success(f"총 {len(results)}개의 시리얼 넘버를 생성했습니다.")
                 st.session_state["serial_list"] = serial_list
+                st.success(f"총 {len(results)}개의 시리얼 넘버를 생성했습니다.")
 
                 if len(results) > 1:
                     zip_name = "barcodes_download.zip"
