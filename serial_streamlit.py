@@ -10,8 +10,6 @@ import streamlit.components.v1 as components
 from google.oauth2 import service_account
 import json
 import gspread
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
 # --------------------------
 # 기본 설정
@@ -100,14 +98,9 @@ def save_model_mapping(name, code):
 def append_serial_to_sheet(serial_data: dict):
     try:
         row = [
-            serial_data.get("시리얼넘버"),
-            serial_data.get("제조사"),
-            serial_data.get("제품 카테고리"),
-            serial_data.get("모델명"),
-            serial_data.get("제조년도"),
-            serial_data.get("제조월"),
-            serial_data.get("주문차수"),
-            serial_data.get("생산순서")
+            serial_data.get("시리얼넘버"), serial_data.get("제조사"), serial_data.get("제품 카테고리"),
+            serial_data.get("모델명"), serial_data.get("제조년도"), serial_data.get("제조월"),
+            serial_data.get("주문차수"), serial_data.get("생산순서")
         ]
         sheet.append_row(row)
     except Exception as e:
@@ -175,3 +168,106 @@ def decode_serial(serial):
 
     except Exception as e:
         return {"오류": str(e)}
+
+# --------------------------
+# Streamlit UI
+# --------------------------
+st.set_page_config(page_title="시리얼 넘버 생성기", layout="centered")
+st.title("📦 시리얼 넘버 자동 생성기")
+st.caption("💡 각 입력 필드는 Enter 대신 Tab 키로 이동하세요.")
+
+if 'clicked' not in st.session_state:
+    st.session_state.clicked = False
+
+maker_name = st.selectbox("제조사", list(maker_dict.keys()), key="maker")
+category_name = st.selectbox("제품 카테고리", list(category_dict.keys()), key="category")
+model = st.text_input("모델명", key="model")
+year = st.text_input("제조년도 (예: 2025)", key="year")
+month = st.text_input("제조월 (1~12)", key="month")
+order = st.text_input("주문차수", key="order")
+start_num = st.text_input("시작 번호", key="start")
+end_num = st.text_input("끝 번호", key="end")
+
+if st.button("✅ 시리얼 넘버 생성"):
+    st.session_state.clicked = True
+
+    valid = all([
+        model, year.isdigit() and len(year) == 4,
+        month.isdigit() and 1 <= int(month) <= 12,
+        order.isdigit(), start_num.isdigit(), end_num.isdigit()
+    ])
+
+    if not valid:
+        st.warning("입력값을 다시 확인해주세요.")
+    else:
+        start = int(start_num)
+        end = int(end_num)
+        if start < 1 or end < start:
+            st.error("시작 번호와 끝 번호를 다시 확인해주세요.")
+        else:
+            try:
+                model_code = get_unique_code(model)
+                save_model_mapping(model, model_code)
+                maker_code = maker_dict[maker_name]
+                category_code = category_dict[category_name]
+
+                results, serial_list = [], []
+                for i in range(start, end + 1):
+                    seq = str(i).zfill(5)
+                    serial = generate_serial(maker_code, category_code, model_code, year, month.lstrip("0"), order, seq)
+                    svg_path = generate_barcode_svg(serial)
+                    results.append((serial, svg_path))
+                    serial_list.append(serial)
+
+                    append_serial_to_sheet({
+                        "시리얼넘버": serial,
+                        "제조사": maker_name,
+                        "제품 카테고리": category_name,
+                        "모델명": model,
+                        "제조년도": year,
+                        "제조월": month,
+                        "주문차수": order,
+                        "생산순서": seq
+                    })
+
+                st.success(f"총 {len(results)}개의 시리얼 넘버를 생성했습니다.")
+                st.session_state["serial_list"] = serial_list
+
+                if len(results) > 1:
+                    zip_name = "barcodes_download.zip"
+                    with zipfile.ZipFile(zip_name, 'w') as zipf:
+                        for _, path in results:
+                            zipf.write(path)
+                    with open(zip_name, "rb") as zf:
+                        st.download_button("ZIP 파일 다운로드", data=zf, file_name=zip_name, mime="application/zip")
+                else:
+                    serial, path = results[0]
+                    with open(path, "rb") as f:
+                        st.download_button(f"{serial} 바코드 다운로드", data=f, file_name=os.path.basename(path), mime="image/svg+xml")
+            except Exception as e:
+                st.error(f"에러 발생: {e}")
+
+if "serial_list" in st.session_state:
+    serial_text = "\n".join(st.session_state["serial_list"])
+    st.text_area("📄 생성된 시리얼 넘버 목록", value=serial_text, height=200, disabled=True)
+    components.html(f"""
+        <button onclick=\"navigator.clipboard.writeText(`{serial_text}`); alert('시리얼 넘버가 클립보드에 복사되었습니다!')\"
+                style=\"margin-top: 10px; padding: 8px 16px; font-size: 16px; cursor: pointer; border-radius: 6px;\">
+            📋 복사하기
+        </button>
+    """, height=60)
+
+st.subheader("🔍 시리얼 넘버 조회")
+decode_input = st.text_input("시리얼 넘버 입력 (최대 15자리)", max_chars=15, key="decode_input")
+if st.button("조회"):
+    if decode_input:
+        serial = decode_input.strip()
+        record = search_serial_from_sheet(serial)
+        if record:
+            st.success("📄 등록된 시리얼 넘버입니다.")
+            for k, v in record.items():
+                st.write(f"{k}: {v}")
+        else:
+            st.error("❌ 조회하신 시리얼 넘버는 존재하지 않는 시리얼 넘버입니다.")
+    else:
+        st.warning("시리얼 넘버를 입력해주세요.")
