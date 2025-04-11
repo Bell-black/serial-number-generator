@@ -97,12 +97,19 @@ def save_model_mapping(name, code):
 
 def append_serial_to_sheet(serial_data: dict):
     try:
+        st.write("📡 시트 저장 시도 중...")  # <-- 이거 중요!
         row = [
-            serial_data.get("시리얼넘버"), serial_data.get("제조사"), serial_data.get("제품 카테고리"),
-            serial_data.get("모델명"), serial_data.get("제조년도"), serial_data.get("제조월"),
-            serial_data.get("주문차수"), serial_data.get("생산순서")
+            serial_data.get("시리얼넘버"),
+            serial_data.get("제조사"),
+            serial_data.get("제품 카테고리"),
+            serial_data.get("모델명"),
+            serial_data.get("제조년도"),
+            serial_data.get("제조월"),
+            serial_data.get("주문차수"),
+            serial_data.get("생산순서")
         ]
         sheet.append_row(row)
+        st.success("✅ Google Sheets 저장 완료")  # <-- 결과 메시지 꼭 확인
     except Exception as e:
         st.error(f"[❌ Google Sheets 저장 실패] {e}")
 
@@ -175,6 +182,12 @@ def decode_serial(serial):
 st.set_page_config(page_title="시리얼 넘버 생성기", layout="centered")
 st.title("📦 시리얼 넘버 자동 생성기")
 st.caption("💡 각 입력 필드는 Enter 대신 Tab 키로 이동하세요.")
+
+try:
+    st.write("✅ 시트 접근 테스트 중...")
+    st.write("첫 번째 셀 내용:", sheet.cell(1, 1).value)
+except Exception as e:
+    st.error(f"❌ 시트 접근 실패: {e}")
 
 if 'clicked' not in st.session_state:
     st.session_state.clicked = False
