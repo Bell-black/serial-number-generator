@@ -117,9 +117,11 @@ def search_serial_from_sheet(serial_number: str):
         serial_number = serial_number.strip()
         st.caption(f"🔎 시트에서 {len(records)}개 행 조회 중... (입력값: `{serial_number}`)")
         for row in records:
-            sheet_serial = str(row.get("시리얼넘버", "")).strip()
+            # 키에 따옴표가 붙어있을 수 있으므로 모든 키를 따옴표 제거 후 비교
+            normalized_row = {k.strip().strip('"'): v for k, v in row.items()}
+            sheet_serial = str(normalized_row.get("시리얼넘버", "")).strip().strip('"')
             if sheet_serial == serial_number:
-                return row
+                return normalized_row
         return None
     except Exception as e:
         st.error(f"[❌ Google Sheets 조회 실패] {e}")
