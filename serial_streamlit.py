@@ -97,7 +97,6 @@ def save_model_mapping(name, code):
 
 def append_serial_to_sheet(serial_data: dict):
     try:
-        st.write("📡 시트 저장 시도 중...")  # <-- 이거 중요!
         row = [
             serial_data.get("시리얼넘버"),
             serial_data.get("제조사"),
@@ -109,15 +108,17 @@ def append_serial_to_sheet(serial_data: dict):
             serial_data.get("생산순서")
         ]
         sheet.append_row(row)
-        st.success("✅ Google Sheets 저장 완료")  # <-- 결과 메시지 꼭 확인
     except Exception as e:
         st.error(f"[❌ Google Sheets 저장 실패] {e}")
 
 def search_serial_from_sheet(serial_number: str):
     try:
         records = sheet.get_all_records()
+        serial_number = serial_number.strip()
+        st.caption(f"🔎 시트에서 {len(records)}개 행 조회 중... (입력값: `{serial_number}`)")
         for row in records:
-            if row.get("시리얼넘버") == serial_number:
+            sheet_serial = str(row.get("시리얼넘버", "")).strip()
+            if sheet_serial == serial_number:
                 return row
         return None
     except Exception as e:
@@ -183,11 +184,6 @@ st.set_page_config(page_title="시리얼 넘버 생성기", layout="centered")
 st.title("📦 시리얼 넘버 자동 생성기")
 st.caption("💡 각 입력 필드는 Enter 대신 Tab 키로 이동하세요.")
 
-try:
-    st.write("✅ 시트 접근 테스트 중...")
-    st.write("첫 번째 셀 내용:", sheet.cell(1, 1).value)
-except Exception as e:
-    st.error(f"❌ 시트 접근 실패: {e}")
 
 if 'clicked' not in st.session_state:
     st.session_state.clicked = False
